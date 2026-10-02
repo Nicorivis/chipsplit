@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChipSplit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+SC:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="chip-logo" aria-hidden="true"></span>
+      <h1>ChipSplit</h1>
+      <span class="tag"><span data-i18n="app.badge">teste</span> v0.6</span>
+    </div>
+    <nav class="tabs" data-i18n-aria="tab.sections" aria-label="Seções">
+      <button type="button" class="tab" data-view="calc" aria-current="page"><span data-i18n="tab.calc">Calcular</span></button>
+      <button type="button" class="tab" data-view="live"><span data-i18n="tab.live">Jogo</span> <span id="liveDot" class="live-dot" hidden></span></button>
+      <button type="button" class="tab" data-view="history"><span data-i18n="tab.history">Histórico</span></button>
+    </nav>
+    <div class="top-right">
+      <label class="sr" for="langTop" data-i18n="lang.label">Idioma</label>
+      <select id="langTop" class="lang-select" data-lang-select></select>
+      <button id="accountBtn" type="button" class="account-btn" data-i18n-aria="acc.aria" aria-label="Conta">
+        <svg id="accountIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+        <img id="accountAvatar" class="acc-avatar" alt="" hidden>
+        <span id="accountLabel">Entrar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- =============== CALCULAR =============== -->
+  <main id="view-calc" class="layout view">
+    <section class="panel" aria-labelledby="t-game">
+      <div class="panel-head">
+        <h2 id="t-game" data-i18n="calc.config">Configuração</h2>
+        <div class="top-actions">
+          <label class="sr" for="example" data-i18n="calc.load_example">Carregar exemplo</label>
+          <select id="example" class="compact"></select>
+          <button id="reset" class="ghost" type="button" data-i18n="calc.clear">Limpar</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label for="players" data-i18n="calc.players">Jogadores</label>
+          <div class="stepper">
+            <button type="button" data-step="players" data-delta="-1" data-i18n-aria="calc.fewer_players" aria-label="Menos jogadores">−</button>
+            <input id="players" type="number" min="2" max="30" value="6">
+            <button type="button" data-step="players" data-delta="1" data-i18n-aria="calc.more_players" aria-label="Mais jogadores">+</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="currency" data-i18n="calc.currency">Moeda</label>
+          <select id="currency"></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="buyIn" data-i18n="calc.buyin">Entrada por jogador (stack inicial)</label>
+        <input id="buyIn" class="money" inputmode="decimal" value="50">
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label for="bigBlind"><span data-i18n="calc.bigblind">Big blind</span> <span class="hint" data-i18n="calc.bigblind_hint">(vazio = sem blinds)</span></label>
+          <input id="bigBlind" class="money" inputmode="decimal" value="0,50">
+        </div>
+        <div class="field">
+          <label for="rebuys" data-i18n="calc.rebuys">Rebuys estimados</label>
+          <div class="stepper">
+            <button type="button" data-step="rebuys" data-delta="-1" data-i18n-aria="calc.fewer_rebuys" aria-label="Menos rebuys">−</button>
+            <input id="rebuys" type="number" min="0" max="50" value="0">
+            <button type="button" data-step="rebuys" data-delta="1" data-i18n-aria="calc.more_rebuys" aria-label="Mais rebuys">+</button>
+          </div>
+        </div>
+      </div>
+
+      <label class="check">
+        <input id="useSmall" type="checkbox" checked>
+        <span><span data-i18n="calc.use_small">Usar small blind</span> <span id="smallInfo" class="hint"></span></span>
+      </label>
+
+      <div class="chips-head">
+        <h2 id="t-chips" data-i18n="calc.chips_title">Fichas do kit</h2>
+        <span class="hint" data-i18n="calc.chips_order">ordem da lista = da menor para a maior</span>
+      </div>
+      <div class="chips-cols" aria-hidden="true">
+        <span data-i18n="calc.col_color">Cor</span><span data-i18n="calc.col_name">Nome</span><span data-i18n="calc.col_qty">Qtd</span><span data-i18n="calc.col_value">Valor</span><span></span>
+      </div>
+      <ul id="chipList" class="chip-list" aria-labelledby="t-chips"></ul>
+      <button id="addChip" class="dashed" type="button" data-i18n="calc.add_chip">+ Adicionar ficha</button>
+      <p class="hint" data-i18n="calc.chips_help">Valor vazio = automático.</p>
+    </section>
+
+    <section class="panel result" aria-labelledby="t-res" aria-live="polite">
+      <h2 id="t-res" data-i18n="calc.result">Resultado</h2>
+
+      <div class="cards">
+        <div class="card pot">
+          <div class="card-label" data-i18n="calc.pot">Pote estimado</div>
+          <div class="card-value" id="potValue">—</div>
+          <div class="card-sub" id="potDetail"></div>
+        </div>
+        <div class="card stack">
+          <div class="card-label" data-i18n="calc.each_gets">Cada jogador recebe</div>
+          <div class="card-value" id="stackValue">—</div>
+          <div class="card-sub" id="stackDetail"></div>
+        </div>
+      </div>
+
+      <ul id="messages" class="messages"></ul>
+
+      <div class="table-wrap">
+        <table class="dist">
+          <thead>
+            <tr>
+              <th scope="col" data-i18n="calc.th_chip">Ficha</th>
+              <th scope="col" class="num" data-i18n="calc.th_value">Valor</th>
+              <th scope="col" class="num" data-i18n="calc.th_per">Por jogador</th>
+              <th scope="col" class="num" data-i18n="calc.th_sub">Subtotal</th>
+              <th scope="col" class="num" data-i18n="calc.th_kit">Usa do kit</th>
+              <th scope="col"><span class="sr" data-i18n="calc.th_action">Ação</span></th>
+            </tr>
+          </thead>
+          <tbody id="distBody"></tbody>
+        </table>
+      </div>
+      <p class="hint" data-i18n="calc.fix_help">“Fixar” trava o valor calculado.</p>
+
+      <button id="startGame" class="primary" type="button" data-i18n="calc.start">Começar jogo com essa distribuição</button>
+    </section>
+  </main>
+
+  <!-- =============== JOGO AO VIVO =============== -->
+  <main id="view-live" class="view live" hidden>
+    <div id="liveRoot"></div>
+  </main>
+
+  <!-- =============== HISTÓRICO =============== -->
+  <main id="view-history" class="view live" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2 data-i18n="hist.title">Histórico de jogos</h2>
+        <div class="top-actions">
+          <button id="exportAll" class="ghost" type="button" data-i18n="hist.export">Exportar backup</button>
+          <label class="ghost file-btn"><span data-i18n="hist.import">Importar backup</span><input id="importFile" type="file" accept="application/json,.json"></label>
+        </div>
+      </div>
+      <p class="hint" data-i18n="hist.help">Tudo fica salvo neste aparelho/navegador.</p>
+      <ul id="historyList" class="history"></ul>
+    </div>
+  </main>
+
+  <!-- =============== PERFIL =============== -->
+  <main id="view-profile" class="view live" hidden>
+    <div id="profileRoot"></div>
+  </main>
+
+  <datalist id="knownNames"></datalist>
+
+  <footer class="foot">
+    <a href="privacidade.html" data-i18n="legal.privacy">Política de Privacidade</a>
+    <span aria-hidden="true">·</span>
+    <a href="termos.html" data-i18n="legal.terms">Termos de Uso</a>
+    <span aria-hidden="true">·</span>
+    <a href="tests.html" data-i18n="foot.tests">Rodar testes no navegador</a>
+  </footer>
+
+  <!-- Banner de anúncio (só no modo grátis) -->
+  <div id="adBanner" class="ad-banner" hidden>
+    <span class="ad-tag">AD</span> <span data-i18n="ad.banner">Espaço de anúncio 320×50</span>
+  </div>
+
+  <!-- Boas-vindas -->
+  <dialog id="dlgWelcome" class="dlg welcome" aria-labelledby="welcomeTitle">
+    <div class="dlg-body">
+      <div class="welcome-lang">
+        <label class="sr" for="langWelcome" data-i18n="lang.label">Idioma</label>
+        <select id="langWelcome" class="lang-select" data-lang-select></select>
+      </div>
+      <span class="chip-logo big" aria-hidden="true"></span>
+      <h3 id="welcomeTitle" data-i18n="welcome.title">Bem-vindo ao ChipSplit</h3>
+      <p class="hint" data-i18n="welcome.text">Divide as fichas, controla rebuys e fecha a conta no fim do jogo.</p>
+      <button type="button" class="google-btn" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3zM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22zM6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9zM12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.8 9.4 6 12 6z"/></svg>
+        <span data-i18n="welcome.google">Entrar com Google</span> <span class="soon" data-i18n="welcome.soon">em breve</span>
+      </button>
+      <button type="button" id="welcomeGuest" class="primary" data-i18n="welcome.guest">Continuar sem conta</button>
+      <p class="hint small" data-i18n="welcome.note">Sem conta: tudo fica salvo neste aparelho.</p>
+      <p class="legal-links small"><a href="privacidade.html" data-i18n="legal.privacy">Política de Privacidade</a> · <a href="termos.html" data-i18n="legal.terms">Termos de Uso</a></p>
+    </div>
+  </dialog>
+
+  <!-- Conta -->
+  <dialog id="dlgAccount" class="dlg" aria-labelledby="accTitle">
+    <form method="dialog" class="dlg-body">
+      <h3 id="accTitle" data-i18n="acc.title">Sua conta</h3>
+      <div class="acc-card">
+        <b id="accMode"></b>
+        <small id="accSince"></small>
+        <small data-i18n="acc.saved_here">Jogos salvos neste aparelho.</small>
+      </div>
+      <button type="button" id="accPro" class="gold-btn"></button>
+      <button type="button" class="google-btn" disabled><span data-i18n="welcome.google">Entrar com Google</span> <span class="soon" data-i18n="welcome.soon">em breve</span></button>
+      <div class="dlg-actions single"><button type="button" class="ghost" data-close data-i18n="common.close">Fechar</button></div>
+    </form>
+  </dialog>
+
+  <!-- Anúncio intersticial -->
+  <dialog id="dlgAd" class="dlg ad-full" data-i18n-aria="ad.aria" aria-label="Anúncio">
+    <div class="dlg-body">
+      <div class="ad-top"><span class="ad-tag">AD</span><button type="button" id="adSkip" class="ghost">3s</button></div>
+      <div class="ad-space" data-i18n="ad.full">Anúncio intersticial rápido</div>
+      <button type="button" id="adGoPro" class="link" data-i18n="ad.remove">Remover anúncios com o Pro</button>
+    </div>
+  </dialog>
+
+  <!-- Confirmação -->
+  <dialog id="dlgAsk" class="dlg ask" aria-labelledby="askText">
+    <div class="dlg-body">
+      <p id="askText" class="ask-text"></p>
+      <div class="dlg-actions">
+        <button type="button" id="askCancel" class="ghost" data-i18n="common.cancel">Cancelar</button>
+        <button type="button" id="askOk" class="gold-btn" data-i18n="common.confirm">Confirmar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Diálogo: entrada / rebuy -->
+  <dialog id="dlgBuy" class="dlg" aria-labelledby="dlgBuyTitle">
+    <form method="dialog" class="dlg-body">
+      <h3 id="dlgBuyTitle">Rebuy</h3>
+      <div class="field" id="buyNameField">
+        <label for="buyName" data-i18n="buy.name">Nome</label>
+        <input id="buyName" type="text" autocomplete="off" list="knownNames">
+      </div>
+      <div class="field">
+        <label for="buyAmount" data-i18n="buy.amount">Valor que vai entrar</label>
+        <input id="buyAmount" class="money" inputmode="decimal">
+      </div>
+      <div class="chip-pick-head">
+        <span class="hint" data-i18n="buy.suggested">Fichas sugeridas (do banco).</span>
+        <button type="button" id="buyResuggest" class="link" data-i18n="buy.resuggest">Sugerir de novo</button>
+      </div>
+      <div id="buyChips" class="chip-pick"></div>
+      <div id="buyStatus" class="status"></div>
+      <div class="dlg-actions">
+        <button type="button" class="ghost" data-close data-i18n="common.cancel">Cancelar</button>
+        <button type="button" id="buyConfirm" class="primary" data-i18n="common.confirm">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Diálogo: saque -->
+  <dialog id="dlgCash" class="dlg" aria-labelledby="dlgCashTitle">
+    <form method="dialog" class="dlg-body">
+      <h3 id="dlgCashTitle">—</h3>
+      <p class="hint" id="cashInfo"></p>
+      <div class="seg" role="group" data-i18n-aria="count.by" aria-label="Contar por">
+        <button type="button" data-mode="chips" aria-pressed="true" data-i18n="count.by_chips">Por fichas</button>
+        <button type="button" data-mode="value" aria-pressed="false" data-i18n="count.by_value">Por valor</button>
+      </div>
+      <div id="cashChips" class="chip-pick"></div>
+      <div class="field" id="cashValueField" hidden>
+        <label for="cashValue" data-i18n="cash.value">Valor que sai</label>
+        <input id="cashValue" class="money" inputmode="decimal">
+      </div>
+      <div id="cashStatus" class="status"></div>
+      <div class="dlg-actions">
+        <button type="button" class="ghost" data-close data-i18n="common.cancel">Cancelar</button>
+        <button type="button" id="cashConfirm" class="primary" data-i18n="cash.confirm">Confirmar saque</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="i18n.js"></script>
+  <script src="ui-i18n.js"></script>
+  <script src="chipsplit-core.js"></script>
+  <script src="session-core.js"></script>
+  <script src="examples.js"></script>
+  <script src="account.js"></script>
+  <script src="app.js"></script>
+  <script src="live.js"></script>
+  <script src="profile.js"></script>
+</body>
+</html>
