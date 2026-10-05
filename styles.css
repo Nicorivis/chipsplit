@@ -467,3 +467,9 @@ dialog[open]::backdrop { animation: fadeIn .2s ease both; }
   button:active { transform: none; }
   .fx-flash, .fx-view, dialog[open] .dlg-body, .msg { animation: none !important; }
 }
+
+/* ================= v0.8 — app instalável ================= */
+.install-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 22px; border: none; background: var(--gold); color: #141413; font-weight: 800; font-size: 14px; }
+.install-btn[hidden] { display: none; }
+@media (max-width: 560px) { .install-btn span { display: none; } .install-btn { padding: 0 12px; } }
+@media (display-mode: standalone) { .top { padding-top: max(14px, env(safe-area-inset-top)); } .foot a[href="tests.html"] { display: none; } }

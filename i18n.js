@@ -306,6 +306,10 @@
     'ad.full': ['Anúncio intersticial rápido', 'Quick interstitial ad', 'Anuncio intersticial rápido', '快速插页广告'],
     'ad.remove': ['Remover anúncios com o Pro', 'Remove ads with Pro', 'Quitar anuncios con Pro', '升级 Pro 去除广告'],
 
+    'pwa.install': ['Instalar app', 'Install app', 'Instalar app', '安装应用'],
+    'pwa.installed': ['App instalado! Agora ele abre pela tela inicial.', 'App installed! Open it from your home screen.', '¡App instalada! Ábrela desde la pantalla de inicio.', '应用已安装！可从主屏幕打开。'],
+    'pwa.ios_help': ['No iPhone: toque no botão Compartilhar (quadrado com seta) do Safari e escolha “Adicionar à Tela de Início”.', 'On iPhone: tap the Share button (square with arrow) in Safari and choose “Add to Home Screen”.', 'En iPhone: toca el botón Compartir (cuadrado con flecha) de Safari y elige “Añadir a pantalla de inicio”.', '在 iPhone 上：点按 Safari 的“分享”按钮（带箭头的方框），然后选择“添加到主屏幕”。'],
+    'pwa.other_help': ['Abra o menu do navegador (⋮) e escolha “Instalar app” ou “Adicionar à tela inicial”.', 'Open the browser menu (⋮) and choose “Install app” or “Add to Home screen”.', 'Abre el menú del navegador (⋮) y elige “Instalar app” o “Añadir a pantalla de inicio”.', '打开浏览器菜单（⋮），选择“安装应用”或“添加到主屏幕”。'],
     'fx.dealing': ['Distribuindo as fichas…', 'Dealing the chips…', 'Repartiendo las fichas…', '正在分发筹码…'],
 
     /* ---------- trocar nome no jogo ---------- */

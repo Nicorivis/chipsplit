@@ -1,0 +1,19 @@
+{
+  "name": "ChipSplit — fichas de poker",
+  "short_name": "ChipSplit",
+  "description": "Divide as fichas de poker, controla rebuys e fecha a conta no fim do jogo.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111614",
+  "theme_color": "#111614",
+  "lang": "pt-BR",
+  "categories": ["games", "utilities", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
