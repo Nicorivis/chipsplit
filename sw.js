@@ -2,7 +2,7 @@
  * ChipSplit — service worker (app instalável e funcionando sem internet).
  * Ao lançar versão nova, troque VERSION para o celular baixar os arquivos novos.
  */
-const VERSION = 'chipsplit-v0.8';
+const VERSION = 'chipsplit-v0.8.1';
 const FILES = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './i18n.js', './fx.js', './ui-i18n.js', './chipsplit-core.js', './session-core.js',
