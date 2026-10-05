@@ -131,6 +131,9 @@
     state.chips.push({ id: 'c' + (nextId++), name: T('chip.new', { n: state.chips.length + 1 }), color: color, qty: EX.DEFAULT_QTY, value: '' });
     renderChipList();
     update();
+    var rows = document.querySelectorAll('#chipList .chip-row');
+    var last = rows[rows.length - 1];
+    if (last) { last.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); if (window.ChipFX) window.ChipFX.flash(last); }
   });
 
   /* ---------- cálculo ---------- */
@@ -210,6 +213,11 @@
         chip.value = row.fixed ? '' : centsToInput(row.value);
         renderChipList();
         update();
+        setTimeout(function () {
+          var idx = state.chips.indexOf(chip);
+          var li = document.querySelectorAll('#chipList .chip-row')[idx];
+          if (li && window.ChipFX) window.ChipFX.flash(li);
+        }, 60);
       });
       tr.lastChild.appendChild(btn);
       tb.appendChild(tr);

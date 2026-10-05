@@ -71,7 +71,8 @@
     store.activeId = g.id;
     ui.counting = false;
     save();
-    ads().then(() => {
+    const fx = window.ChipFX ? window.ChipFX.deal(r.players, T('fx.dealing')) : Promise.resolve();
+    fx.then(ads).then(() => {
       showView('live');
       toast(T('live.started_toast', { name: T('player.default', { n: 1 }) }));
     });
@@ -147,7 +148,7 @@
 
     <section class="players-grid">
       ${d.players.map((p, i) => `
-      <article class="player ${p.active ? '' : 'out'}">
+      <article class="player ${p.active ? '' : 'out'}" data-card="${p.id}">
         <div class="p-top">
           ${avatar(i, p.name)}
           <label class="sr" for="pn-${p.id}">${esc(T('live.player_name'))}</label>
@@ -454,11 +455,13 @@
     if (amount <= 0) { $('buyAmount').focus(); return; }
     const total = S.valueOf(g, buy.counts);
     if (total !== amount && !(await ask(T('buy.mismatch_ask', { total: fmt(g, total), amount: fmt(g, amount) }), T('buy.record')))) return;
-    if (buy.mode === 'join') S.join(g, $('buyName').value.trim() || undefined, amount, buy.counts);
+    let pid = buy.pid;
+    if (buy.mode === 'join') pid = S.join(g, $('buyName').value.trim() || undefined, amount, buy.counts);
     else S.rebuy(g, buy.pid, amount, buy.counts);
     save();
     dlgBuy.close();
     renderLive();
+    flashCard(pid, true);
     toast(T(buy.mode === 'join' ? 'buy.joined_toast' : 'buy.rebuy_toast'));
   });
 
@@ -504,6 +507,7 @@
     save();
     dlgCash.close();
     renderLive();
+    flashCard(cash.pid);
     toast(T('cash.toast'));
   });
 
@@ -523,7 +527,7 @@
     if (act === 'cash') openCash(b.dataset.pid);
     if (act === 'undo') {
       const last = g.events[g.events.length - 1];
-      if (await ask(T('undo.ask', { what: S.describe(g, last) }), T('undo.btn'))) { S.undo(g); save(); renderLive(); }
+      if (await ask(T('undo.ask', { what: S.describe(g, last) }), T('undo.btn'))) { S.undo(g); save(); renderLive(); if (last.playerId) flashCard(last.playerId); }
     }
     if (act === 'count') { ui.counting = true; ui.finals = {}; renderLive(); window.scrollTo(0, 0); }
     if (act === 'count-cancel') { ui.counting = false; renderLive(); }
@@ -555,9 +559,17 @@
       if (!(await ask(T('res.reopen_ask'), T('res.reopen_btn')))) return;
       S.undo(g); save(); renderLive();
     }
-    if (act === 'copy') copyText(S.summaryText(g));
+    if (act === 'copy') { copyText(S.summaryText(g)); window.ChipFX && window.ChipFX.success(b); }
     if (act === 'export-one') download('chipsplit-' + slug(g.title) + '.json', { app: 'chipsplit', v: 1, exportedAt: new Date().toISOString(), games: [g] });
   });
+  /* destaque no cartão do jogador depois de uma ação */
+  function flashCard(pid, scroll) {
+    const el = root.querySelector(`[data-card="${pid}"]`);
+    if (!el || !window.ChipFX) return;
+    if (scroll) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    window.ChipFX.flash(el);
+  }
+
   /* trocar o nome do jogador: botão ✓, Enter ou sair do campo */
   function commitRename(pid) {
     const g = activeGame();
@@ -570,6 +582,7 @@
       S.rename(g, p.id, name);
       save();
       renderLive();
+      flashCard(pid);
       toast(T('live.renamed_toast'));
     } else syncRenameBtn(input);
   }

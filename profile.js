@@ -188,6 +188,10 @@
     profile.handle = handle;
     save();
     render();
+    if (window.ChipFX) {
+      window.ChipFX.success(root.querySelector('#profForm button[type=submit]'));
+      window.ChipFX.flash(root.querySelector('.profile-head'));
+    }
     window.ChipUI.toast(T('prof.saved'));
   });
 

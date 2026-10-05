@@ -306,6 +306,8 @@
     'ad.full': ['Anúncio intersticial rápido', 'Quick interstitial ad', 'Anuncio intersticial rápido', '快速插页广告'],
     'ad.remove': ['Remover anúncios com o Pro', 'Remove ads with Pro', 'Quitar anuncios con Pro', '升级 Pro 去除广告'],
 
+    'fx.dealing': ['Distribuindo as fichas…', 'Dealing the chips…', 'Repartiendo las fichas…', '正在分发筹码…'],
+
     /* ---------- trocar nome no jogo ---------- */
     'live.rename_ok': ['Confirmar nome', 'Confirm name', 'Confirmar nombre', '确认姓名'],
     'live.renamed_toast': ['Nome atualizado.', 'Name updated.', 'Nombre actualizado.', '姓名已更新。'],
