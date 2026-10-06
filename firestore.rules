@@ -1,0 +1,29 @@
+rules_version = '2';
+// ChipSplit — regras do banco (Firestore).
+// Cada pessoa só lê e escreve os próprios dados. Ninguém lê dados de outra pessoa.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+                            && request.resource.data.keys().hasOnly(['profile', 'updatedAt']);
+
+      match /games/{gameId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+                              && request.resource.data.keys().hasOnly(['json', 'createdAt', 'updatedAt'])
+                              && request.resource.data.json is string
+                              && request.resource.data.json.size() < 900000;
+      }
+    }
+
+    // Todo o resto fica fechado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
