@@ -4,15 +4,18 @@
  *  ads      anúncios reais (AdSense/AdMob). Desligado até existir conta aprovada.
  *  pro      assinatura Pro com pagamento real. Desligado até ter pagamento.
  *  firebase dados do projeto Firebase (login Google + nuvem). null = só modo convidado.
+ *  goatcounter  código da conta GoatCounter (ex.: 'chipsplit') para contar visitas,
+ *               jogos criados e jogos encerrados, sem cookies. null = desligado.
  *
  * Modo teste: abrir o site com ?dev=1 liga anúncios e Pro SIMULADOS neste aparelho.
  * ?dev=0 desliga de novo.
  */
 window.CHIPSPLIT_CONFIG = {
-  version: '0.9',
+  version: '1.0',
   ads: false,
   pro: false,
-  firebase: null
+  firebase: null,
+  goatcounter: null
   // firebase: { apiKey: '...', authDomain: '...', projectId: '...', appId: '...' }
 };
 

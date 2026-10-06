@@ -59,6 +59,8 @@
 
   /* ---------- formulário do jogo ---------- */
   function syncForm() {
+    if (!state.type) state.type = 'cash';
+    document.querySelectorAll('[data-gtype]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-gtype') === state.type)); });
     $('players').value = state.players;
     renderCurrencies();
     $('buyIn').value = state.buyIn;
@@ -73,6 +75,13 @@
   });
   ['buyIn', 'bigBlind'].forEach(function (id) {
     $(id).addEventListener('input', function (e) { state[id] = e.target.value; update(); });
+  });
+  document.querySelectorAll('[data-gtype]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.type = b.getAttribute('data-gtype');
+      syncForm();
+      update();
+    });
   });
   $('currency').addEventListener('change', function (e) { state.currency = e.target.value; update(); });
   $('useSmall').addEventListener('change', function (e) { state.useSmall = e.target.checked; update(); });
@@ -271,7 +280,7 @@
   $('startGame').addEventListener('click', function () {
     var last = window.ChipSplitApp.last;
     if (!last || !last.result.ok) return;
-    document.dispatchEvent(new CustomEvent('chipsplit:start', { detail: last }));
+    document.dispatchEvent(new CustomEvent('chipsplit:start', { detail: Object.assign({}, last, { type: state.type || 'cash' }) }));
   });
 
   // Trocou o idioma: refaz textos gerados aqui e traduz os nomes padrão das fichas
@@ -289,6 +298,17 @@
     syncForm();
     render();
   });
+
+  /** Usado pelo "Novo jogo" guiado: troca a configuração e calcula na hora. */
+  window.ChipSplitApp.apply = function (patch) {
+    state = withIds(Object.assign({}, state, JSON.parse(JSON.stringify(patch))));
+    syncForm();
+    render();
+    save();
+    return window.ChipSplitApp.last;
+  };
+  window.ChipSplitApp.state = function () { return JSON.parse(JSON.stringify(state)); };
+  window.ChipSplitApp.start = function () { $('startGame').click(); };
 
   renderExamples();
   syncForm();

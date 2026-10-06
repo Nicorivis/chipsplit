@@ -56,6 +56,9 @@
         bigBlind: opts.bigBlind || 0,
         smallBlind: opts.smallBlind || 0,
         chipsPerPlayer: opts.chipsPerPlayer || 30,
+        type: opts.type === 'tournament' ? 'tournament' : 'cash',
+        payouts: opts.type === 'tournament' ? (opts.payouts || defaultPayouts((opts.players || []).length)) : null,
+        startChips: opts.startChips ? clean(opts.startChips) : null,
         chips: (opts.chips || []).filter(function (c) { return c.value > 0; }).map(function (c) {
           return { id: String(c.id), name: c.name, color: c.color, qty: c.qty, value: c.value };
         }).sort(function (a, b) { return a.value - b.value; })
@@ -95,11 +98,66 @@
     return id;
   }
 
-  /** Rebuy (ou volta de quem tinha saído). */
-  function rebuy(s, playerId, amount, chips, t) {
+  /** Rebuy (ou volta de quem tinha saído). kind = 'addon' para add-on. */
+  function rebuy(s, playerId, amount, chips, t, kind) {
     assertRunning(s);
     assertPlayer(s, playerId);
-    push(s, { type: 'rebuy', playerId: playerId, amount: amount, chips: clean(chips) }, t);
+    var ev = { type: 'rebuy', playerId: playerId, amount: amount, chips: clean(chips) };
+    if (kind === 'addon') ev.addon = true;
+    push(s, ev, t);
+  }
+
+  /** Torneio: jogador foi eliminado (sai sem receber nada agora; prêmio só no fim, pela posição). */
+  function eliminate(s, playerId, t) {
+    assertRunning(s);
+    assertPlayer(s, playerId);
+    push(s, { type: 'bust', playerId: playerId }, t);
+  }
+
+  /** Divisão padrão do prêmio (em %) pelo número de jogadores. */
+  function defaultPayouts(n) {
+    if (n <= 3) return [100];
+    if (n <= 6) return [65, 35];
+    if (n <= 10) return [50, 30, 20];
+    return [45, 27, 18, 10];
+  }
+
+  /** Valor de cada prêmio em centavos; o arredondamento sobra para o 1º lugar. */
+  function prizeAmounts(pool, payouts) {
+    var pct = (payouts || [100]).map(function (x) { return Math.max(0, Number(x) || 0); });
+    var sum = pct.reduce(function (a, b) { return a + b; }, 0) || 100;
+    var out = pct.map(function (x) { return Math.floor(pool * x / sum); });
+    var given = out.reduce(function (a, b) { return a + b; }, 0);
+    if (out.length) out[0] += pool - given;
+    return out;
+  }
+
+  /**
+   * Encerra um torneio.
+   * order = ids de quem ainda está jogando, do 1º lugar para baixo.
+   * payouts = % por posição (opcional; senão usa o que está no jogo).
+   */
+  function finishTournament(s, order, payouts, t) {
+    assertRunning(s);
+    if (payouts) s.config.payouts = payouts.slice();
+    var d = derive(s);
+    var active = d.players.filter(function (p) { return p.active; }).map(function (p) { return p.id; });
+    var ranked = (order || []).filter(function (id) { return active.indexOf(id) >= 0; });
+    active.forEach(function (id) { if (ranked.indexOf(id) < 0) ranked.push(id); });
+    // eliminados: o último a cair fica logo atrás de quem terminou jogando
+    var busted = s.events.filter(function (e) { return e.type === 'bust'; }).map(function (e) { return e.playerId; });
+    var lastBust = {};
+    busted.forEach(function (id, i) { lastBust[id] = i; });
+    var bustOrder = Object.keys(lastBust).filter(function (id) { return active.indexOf(id) < 0; })
+      .sort(function (a, b) { return lastBust[b] - lastBust[a]; });
+    var places = ranked.concat(bustOrder);
+    var prizes = prizeAmounts(d.onTable, s.config.payouts);
+    places.forEach(function (id, i) {
+      var prize = prizes[i] || 0;
+      var p = d.players.filter(function (x) { return x.id === id; })[0];
+      if (p && (p.active || prize > 0)) cashOut(s, id, { amount: prize }, t, true);
+    });
+    push(s, { type: 'end', places: places }, t);
   }
 
   /**
@@ -178,22 +236,29 @@
         case 'join':
           p = {
             id: ev.playerId, name: ev.name, joinedAt: ev.at, active: true,
-            invested: 0, cashedOut: 0, entries: 0, rebuys: 0,
+            invested: 0, cashedOut: 0, entries: 0, rebuys: 0, addons: 0, busted: false, place: null,
             chipsIn: {}, lastCashout: null
           };
           players.push(p); byId[p.id] = p;
           buy(p, ev); p.entries++;
           break;
         case 'rebuy':
-          if (!p.active) p.entries++; else p.rebuys++;
-          p.active = true; buy(p, ev);
+          if (ev.addon) p.addons++;
+          else if (!p.active) p.entries++; else p.rebuys++;
+          p.active = true; p.busted = false; buy(p, ev);
+          break;
+        case 'bust':
+          p.active = false; p.busted = true;
           break;
         case 'cashout':
           p.cashedOut += ev.amount; p.active = false; p.lastCashout = ev;
           if (ev.chips) Object.keys(ev.chips).forEach(function (k) { bank[k] = (bank[k] || 0) + ev.chips[k]; });
           break;
         case 'rename': p.name = ev.name; break;
-        case 'end': endedAt = ev.at; break;
+        case 'end':
+          endedAt = ev.at;
+          (ev.places || []).forEach(function (id, i) { if (byId[id]) byId[id].place = i + 1; });
+          break;
       }
     });
 
@@ -289,7 +354,8 @@
     switch (ev.type) {
       case 'start': return T('log.start');
       case 'join': return T(ev.initial ? 'log.join' : 'log.join_mid', { who: who, v: fmt(s, ev.amount) }) + chips(ev.chips);
-      case 'rebuy': return T('log.rebuy', { who: who, v: fmt(s, ev.amount) }) + chips(ev.chips);
+      case 'rebuy': return T(ev.addon ? 'log.addon' : 'log.rebuy', { who: who, v: fmt(s, ev.amount) }) + chips(ev.chips);
+      case 'bust': return T('log.bust', { who: who });
       case 'cashout': return T(ev.final ? 'log.final' : 'log.cashout', { who: who, v: fmt(s, ev.amount) }) + (ev.chips ? chips(ev.chips) : ' ' + T('log.by_value'));
       case 'rename': return T('log.rename', { name: ev.name });
       case 'end': return T('log.end');
@@ -307,8 +373,12 @@
     lines.push(new Date(d.startedAt).toLocaleString(I18N.locale()) + (d.endedAt ? ' · ' + T('sum.duration', { d: elapsed(d.endedAt - d.startedAt) }) : ''));
     lines.push(T('sum.total_in', { v: fmt(s, d.totalIn) }));
     lines.push('');
-    d.players.slice().sort(function (a, b) { return b.net - a.net; }).forEach(function (p) {
-      lines.push(T('sum.line', { name: p.name, 'in': fmt(s, p.invested), out: fmt(s, p.cashedOut), net: (p.net >= 0 ? '+' : '−') + fmt(s, Math.abs(p.net)) }));
+    var sorted = d.players.slice().sort(function (a, b) {
+      if (a.place && b.place) return a.place - b.place;
+      return b.net - a.net;
+    });
+    sorted.forEach(function (p) {
+      lines.push((p.place ? p.place + 'º · ' : '') + T('sum.line', { name: p.name, 'in': fmt(s, p.invested), out: fmt(s, p.cashedOut), net: (p.net >= 0 ? '+' : '−') + fmt(s, Math.abs(p.net)) }));
     });
     if (st.transfers.length) {
       lines.push('');
@@ -372,6 +442,7 @@
 
   return {
     createSession: createSession, join: join, rebuy: rebuy, cashOut: cashOut,
+    eliminate: eliminate, finishTournament: finishTournament, defaultPayouts: defaultPayouts, prizeAmounts: prizeAmounts,
     rename: rename, finish: finish, undo: undo, derive: derive, suggest: suggest,
     settle: settle, valueOf: valueOf, describe: describe, summaryText: summaryText,
     clock: clock, elapsed: elapsed, isEnded: isEnded, VERSION: VERSION,

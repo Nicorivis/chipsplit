@@ -3,7 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChipSplit</title>
+  <title>ChipSplit — calculadora de fichas de poker e acerto</title>
+  <meta name="description" content="Calcule quantas fichas cada jogador recebe, controle rebuys e eliminações durante o jogo e faça o acerto no fim. Poker caseiro, cash ou torneio. Grátis e sem cadastro.">
+  <link rel="canonical" href="https://nicorivis.github.io/chipsplit/">
+  <meta property="og:title" content="ChipSplit — fichas de poker sem dor de cabeça">
+  <meta property="og:description" content="Distribui as fichas, controla o jogo ao vivo e faz o acerto: quem paga quem, no menor número de Pix.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://nicorivis.github.io/chipsplit/">
+  <meta property="og:image" content="https://nicorivis.github.io/chipsplit/icons/icon-512.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+SC:wght@500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
@@ -21,7 +28,6 @@
     <div class="brand">
       <span class="chip-logo" aria-hidden="true"></span>
       <h1>ChipSplit</h1>
-      <span class="tag"><span data-i18n="app.badge">teste</span> v0.8</span>
     </div>
     <nav class="tabs" data-i18n-aria="tab.sections" aria-label="Seções">
       <button type="button" class="tab" data-view="calc" aria-current="page"><span data-i18n="tab.calc">Calcular</span></button>
@@ -45,6 +51,15 @@
 
   <!-- =============== CALCULAR =============== -->
   <main id="view-calc" class="layout view">
+    <div class="calc-hero">
+      <div id="resumeBanner" class="resume" hidden></div>
+      <button type="button" id="wizardBtn" class="new-game">
+        <span class="ng-chip" aria-hidden="true"></span>
+        <span class="ng-text"><b data-i18n="wiz.new">Novo jogo</b><small data-i18n="wiz.new_sub">Monte a mesa em 4 passos e já comece a jogar.</small></span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+      </button>
+      <p class="hint" data-i18n="wiz.or_advanced">Ou ajuste tudo manualmente logo abaixo.</p>
+    </div>
     <section class="panel" aria-labelledby="t-game">
       <div class="panel-head">
         <h2 id="t-game" data-i18n="calc.config">Configuração</h2>
@@ -52,6 +67,14 @@
           <label class="sr" for="example" data-i18n="calc.load_example">Carregar exemplo</label>
           <select id="example" class="compact"></select>
           <button id="reset" class="ghost" type="button" data-i18n="calc.clear">Limpar</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label-like" data-i18n="calc.type">Tipo de jogo</span>
+        <div class="seg" role="group" data-i18n-aria="calc.type" aria-label="Tipo de jogo">
+          <button type="button" data-gtype="cash" aria-pressed="true" data-i18n="type.cash">Cash game</button>
+          <button type="button" data-gtype="tournament" aria-pressed="false" data-i18n="type.tournament">Torneio</button>
         </div>
       </div>
 
@@ -179,6 +202,8 @@
     <a href="termos.html" data-i18n="legal.terms">Termos de Uso</a>
     <span aria-hidden="true">·</span>
     <a href="tests.html" data-i18n="foot.tests">Rodar testes no navegador</a>
+    <span aria-hidden="true">·</span>
+    <a href="guias/" data-i18n="foot.guides">Guias (PT)</a>
   </footer>
 
   <!-- Banner de anúncio (só no modo grátis) -->
@@ -196,12 +221,12 @@
       <span class="chip-logo big" aria-hidden="true"></span>
       <h3 id="welcomeTitle" data-i18n="welcome.title">Bem-vindo ao ChipSplit</h3>
       <p class="hint" data-i18n="welcome.text">Divide as fichas, controla rebuys e fecha a conta no fim do jogo.</p>
-      <button type="button" class="google-btn" disabled>
+      <button type="button" class="google-btn" id="welcomeGoogle" disabled>
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3zM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22zM6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9zM12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.8 9.4 6 12 6z"/></svg>
-        <span data-i18n="welcome.google">Entrar com Google</span> <span class="soon" data-i18n="welcome.soon">em breve</span>
+        <span data-i18n="welcome.google">Entrar com Google</span> <span class="soon" id="welcomeSoon" data-i18n="welcome.soon">em breve</span>
       </button>
       <button type="button" id="welcomeGuest" class="primary" data-i18n="welcome.guest">Continuar sem conta</button>
-      <p class="hint small" data-i18n="welcome.note">Sem conta: tudo fica salvo neste aparelho.</p>
+      <p class="hint small" id="welcomeNote">Sem conta, tudo fica salvo neste aparelho.</p>
       <p class="legal-links small"><a href="privacidade.html" data-i18n="legal.privacy">Política de Privacidade</a> · <a href="termos.html" data-i18n="legal.terms">Termos de Uso</a></p>
     </div>
   </dialog>
@@ -227,6 +252,24 @@
       <div class="ad-top"><span class="ad-tag">AD</span><button type="button" id="adSkip" class="ghost">3s</button></div>
       <div class="ad-space" data-i18n="ad.full">Anúncio intersticial rápido</div>
       <button type="button" id="adGoPro" class="link" data-i18n="ad.remove">Remover anúncios com o Pro</button>
+    </div>
+  </dialog>
+
+  <!-- Novo jogo guiado -->
+  <dialog id="dlgWizard" class="dlg wizard" aria-labelledby="wizTitle">
+    <div class="dlg-body">
+      <div class="wiz-top">
+        <span class="hint" id="wizStep"></span>
+        <button type="button" class="icon wiz-close" data-close aria-label="Fechar">×</button>
+      </div>
+      <div class="wiz-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <h3 id="wizTitle"></h3>
+      <div id="wizBody" class="wiz-body"></div>
+      <p id="wizPreview" class="status"></p>
+      <div class="dlg-actions">
+        <button type="button" id="wizBack" class="ghost" data-i18n="wiz.back">Voltar</button>
+        <button type="button" id="wizNext" class="gold-btn" data-i18n="wiz.next">Continuar</button>
+      </div>
     </div>
   </dialog>
 
@@ -288,6 +331,7 @@
     </form>
   </dialog>
 
+  <script src="config.js"></script>
   <script src="i18n.js"></script>
   <script src="fx.js"></script>
   <script src="ui-i18n.js"></script>
@@ -297,7 +341,10 @@
   <script src="account.js"></script>
   <script src="app.js"></script>
   <script src="live.js"></script>
+  <script src="wizard.js"></script>
   <script src="profile.js"></script>
+  <script src="auth.js"></script>
+  <script src="analytics.js"></script>
   <script src="pwa.js"></script>
 </body>
 </html>

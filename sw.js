@@ -2,11 +2,11 @@
  * ChipSplit — service worker (app instalável e funcionando sem internet).
  * Ao lançar versão nova, troque VERSION para o celular baixar os arquivos novos.
  */
-const VERSION = 'chipsplit-v0.9';
+const VERSION = 'chipsplit-v1.0';
 const FILES = [
   './', './index.html', './styles.css', './manifest.webmanifest', './config.js', './auth.js',
   './i18n.js', './fx.js', './ui-i18n.js', './chipsplit-core.js', './session-core.js',
-  './examples.js', './account.js', './app.js', './live.js', './profile.js', './pwa.js',
+  './examples.js', './account.js', './app.js', './live.js', './wizard.js', './analytics.js', './profile.js', './pwa.js',
   './privacidade.html', './termos.html', './legal.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png'
 ];

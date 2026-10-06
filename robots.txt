@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://nicorivis.github.io/chipsplit/sitemap.xml

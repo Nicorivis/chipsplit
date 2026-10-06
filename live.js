@@ -62,7 +62,13 @@
   document.addEventListener('chipsplit:start', async (e) => {
     const { result: r, currency } = e.detail;
     const running = runningGame();
-    if (running && !(await ask(T('live.running_ask', { title: running.title }), T('live.start_other')))) return;
+    // Um jogo aberto por vez: se já existe um, leva o usuário até ele.
+    if (running) {
+      if (await ask(T('live.running_ask', { title: running.title }), T('live.start_other'))) {
+        store.activeId = running.id; ui.counting = false; showView('live');
+      }
+      return;
+    }
     const startChips = {};
     r.rows.forEach((x) => { if (x.used) startChips[String(x.id)] = x.count; });
     const names = [];
@@ -73,10 +79,11 @@
       currency, buyIn: r.buyIn, bigBlind: r.bigBlind, smallBlind: r.smallBlind,
       chipsPerPlayer: r.chipsPerPlayer,
       chips: r.rows.filter((x) => x.value > 0).map((x) => ({ id: String(x.id), name: x.name, color: x.color, qty: x.qty, value: x.value })),
-      startChips, players: names
+      startChips, players: names, type: e.detail.type
     });
     store.games.unshift(g);
     store.activeId = g.id;
+    document.dispatchEvent(new CustomEvent('chipsplit:game-created', { detail: { type: g.config.type, players: names.length } }));
     ui.counting = false;
     save();
     // Animação das fichas e depois DIRETO para o jogo (sem anúncio no meio).
@@ -114,6 +121,7 @@
     }
     const d = S.derive(g);
     if (d.ended) renderResults(g, d);
+    else if (ui.counting && isTour(g)) renderTournamentEnd(g, d);
     else if (ui.counting) renderCounting(g, d);
     else renderRunning(g, d);
   }
@@ -138,18 +146,18 @@
       <div class="title-row">
         <label class="sr" for="gameTitle">${esc(T('live.game_name'))}</label>
         <input id="gameTitle" class="title-input" value="${esc(g.title)}" data-field="title">
+        <span class="badge type">${esc(T(isTour(g) ? 'type.tournament' : 'type.cash'))}</span>
         <span class="badge live">${esc(T('live.badge_live'))}</span>
       </div>
       <div class="stats">
         <div class="stat"><span>${esc(T('live.duration'))}</span><b id="elapsed">${S.elapsed(Date.now() - d.startedAt)}</b><small>${esc(T('live.started_at', { t: S.clock(d.startedAt) }))}</small></div>
         <div class="stat"><span>${esc(T('live.total_in'))}</span><b>${fmt(g, d.totalIn)}</b><small>${esc(T('live.buyin_is', { v: fmt(g, g.config.buyIn) }))}</small></div>
-        <div class="stat"><span>${esc(T('live.on_table'))}</span><b class="gold">${fmt(g, d.onTable)}</b><small>${esc(T('live.n_playing', { n: d.active }))}</small></div>
+        <div class="stat"><span>${esc(T(isTour(g) ? 'live.prize_pool' : 'live.on_table'))}</span><b class="gold">${fmt(g, d.onTable)}</b><small>${esc(T('live.n_playing', { n: d.active }))}</small></div>
         <div class="stat"><span>${esc(T('live.blinds'))}</span><b>${blinds}</b><small>${esc(T('live.n_players_total', { n: d.players.length }))}</small></div>
       </div>
+      ${distHTML(g)}
       <div class="actions">
         <button class="primary" data-act="join">${esc(T('live.join'))}</button>
-        <button class="ghost" data-act="undo" ${canUndo ? '' : 'disabled'}>${esc(T('live.undo'))}</button>
-        <button class="gold-btn" data-act="count" ${d.active ? '' : 'disabled'}>${esc(T('live.count'))}</button>
       </div>
     </section>
 
@@ -163,18 +171,22 @@
           <button type="button" class="ok-btn" data-act="rename" data-pid="${p.id}" aria-label="${esc(T('live.rename_ok'))}" title="${esc(T('live.rename_ok'))}" hidden>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
           </button>
-          <span class="badge ${p.active ? 'on' : ''}">${esc(T(p.active ? 'live.playing' : 'live.out'))}</span>
+          <span class="badge ${p.active ? 'on' : ''}">${esc(T(p.active ? 'live.playing' : p.busted ? 'live.busted' : 'live.out'))}</span>
         </div>
         <div class="p-stats">
           <div><span>${esc(T('live.put_in'))}</span><b>${fmt(g, p.invested)}</b></div>
           <div><span>${esc(T('live.rebuys'))}</span><b>${p.rebuys}</b></div>
+          ${p.addons ? `<div><span>${esc(T('live.addons'))}</span><b>${p.addons}</b></div>` : ''}
           ${p.cashedOut ? `<div><span>${esc(T('live.cashed'))}</span><b>${fmt(g, p.cashedOut)}</b></div>` : ''}
         </div>
         <div class="p-chips" title="${esc(T('live.chips_received'))}">${chipDots(g, p.chipsIn)}</div>
         <div class="p-actions">
           ${p.active
             ? `<button class="small" data-act="rebuy" data-pid="${p.id}">${esc(T('live.rebuy'))}</button>
-               <button class="small ghost" data-act="cash" data-pid="${p.id}">${esc(T('live.cash'))}</button>`
+               <button class="small ghost" data-act="addon" data-pid="${p.id}">${esc(T('live.addon'))}</button>
+               ${isTour(g)
+                 ? `<button class="small ghost danger-ghost" data-act="bust" data-pid="${p.id}">${esc(T('live.bust'))}</button>`
+                 : `<button class="small ghost" data-act="cash" data-pid="${p.id}">${esc(T('live.cash'))}</button>`}`
             : `<button class="small" data-act="rebuy" data-pid="${p.id}">${esc(T('live.back'))}</button>`}
         </div>
       </article>`).join('')}
@@ -190,7 +202,22 @@
         <h2>${esc(T('live.log'))}</h2>
         ${logHTML(g, d)}
       </div>
-    </section>`;
+    </section>
+    <div class="live-footer">
+      <button class="ghost" data-act="undo" ${canUndo ? '' : 'disabled'}>${esc(T('live.undo'))}</button>
+      <button class="gold-btn" data-act="count" ${d.active ? '' : 'disabled'}>${esc(T('live.end_game'))}</button>
+    </div>`;
+  }
+
+  const isTour = (g) => g.config.type === 'tournament';
+
+  /* distribuição inicial, recolhível */
+  function distHTML(g) {
+    const sc = g.config.startChips;
+    if (!sc) return '';
+    const rows = g.config.chips.filter((c) => sc[c.id]).map((c) =>
+      `<li><span class="dot" style="background:${esc(c.color)}"></span><span>${esc(c.name)} <small>${fmt(g, c.value)}</small></span><b>× ${sc[c.id]}</b><small>${fmt(g, c.value * sc[c.id])}</small></li>`).join('');
+    return `<details class="dist-details"><summary>${esc(T('live.see_dist'))}</summary><ul class="bank">${rows}</ul></details>`;
   }
 
   function bankRows(g, d) {
@@ -253,6 +280,70 @@
     updateCounting(g, d);
   }
 
+  /* ----- fim de torneio: ordem e premiação ----- */
+  function renderTournamentEnd(g, d) {
+    const byId = {}; d.players.forEach((p, i) => { byId[p.id] = { p, i }; });
+    const busted = [];
+    g.events.forEach((e) => { if (e.type === 'bust' && byId[e.playerId] && !byId[e.playerId].p.active) { const k = busted.indexOf(e.playerId); if (k >= 0) busted.splice(k, 1); busted.push(e.playerId); } });
+    const places = ui.order.concat(busted.slice().reverse());
+    root.innerHTML = `
+    <section class="panel game-head">
+      <h2>${esc(T('tour.title'))}</h2>
+      <p class="hint">${esc(T('tour.help'))}</p>
+      <div class="stats">
+        <div class="stat"><span>${esc(T('live.prize_pool'))}</span><b class="gold">${fmt(g, d.onTable)}</b><small>${esc(T('live.n_players_total', { n: d.players.length }))}</small></div>
+      </div>
+    </section>
+    <section class="two-col">
+      <div class="panel">
+        <h2>${esc(T('tour.standings'))}</h2>
+        <ol class="standings">
+          ${places.map((id, k) => {
+            const { p, i } = byId[id];
+            const live = p.active;
+            return `<li class="${live ? 'alive' : 'out'}">
+              <span class="place place-${k + 1}">${esc(T('tour.place', { n: k + 1 }))}</span>
+              ${avatar(i, p.name)}<b>${esc(p.name)}</b>
+              <span class="prize" data-prize="${k}"></span>
+              ${live ? `<span class="row-actions">
+                <button type="button" class="icon" data-act="tmove" data-pid="${id}" data-d="-1" aria-label="${esc(T('chip.up'))}" ${ui.order.indexOf(id) === 0 ? 'disabled' : ''}>↑</button>
+                <button type="button" class="icon" data-act="tmove" data-pid="${id}" data-d="1" aria-label="${esc(T('chip.down'))}" ${ui.order.indexOf(id) === ui.order.length - 1 ? 'disabled' : ''}>↓</button>
+              </span>` : `<small class="hint">${esc(T('live.busted'))}</small>`}
+            </li>`;
+          }).join('')}
+        </ol>
+      </div>
+      <div class="panel">
+        <h2>${esc(T('tour.payouts'))}</h2>
+        <div class="payouts">
+          ${ui.payouts.map((v, k) => `<label class="pay-row"><span class="place place-${k + 1}">${esc(T('tour.place', { n: k + 1 }))}</span>
+            <input type="number" min="0" max="100" inputmode="numeric" value="${v}" data-pay="${k}" aria-label="% ${esc(T('tour.place', { n: k + 1 }))}"><span>%</span></label>`).join('')}
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost" data-act="tplace" data-d="1" ${ui.payouts.length >= places.length ? 'disabled' : ''}>${esc(T('tour.add_place'))}</button>
+          <button type="button" class="ghost" data-act="tplace" data-d="-1" ${ui.payouts.length <= 1 ? 'disabled' : ''}>${esc(T('tour.remove_place'))}</button>
+        </div>
+        <p class="hint" id="paySum"></p>
+      </div>
+    </section>
+    <div class="live-footer">
+      <button class="ghost" data-act="count-cancel">${esc(T('live.back'))}</button>
+      <button class="gold-btn" data-act="tfinish">${esc(T('tour.finish'))}</button>
+    </div>`;
+    updatePrizes(g);
+  }
+  function updatePrizes(g) {
+    const d = S.derive(g);
+    const prizes = S.prizeAmounts(d.onTable, ui.payouts);
+    root.querySelectorAll('[data-prize]').forEach((el) => {
+      const v = prizes[Number(el.dataset.prize)] || 0;
+      el.textContent = v ? fmt(g, v) : '';
+    });
+    const sum = ui.payouts.reduce((a, b) => a + b, 0);
+    const ps = $('paySum');
+    if (ps) { ps.textContent = sum === 100 ? '' : T('tour.sum_warn', { p: sum }); ps.className = sum === 100 ? 'hint' : 'hint warn-text'; }
+  }
+
   function finalValue(g, f) {
     return f.mode === 'chips' ? S.valueOf(g, f.chips) : CS.toCents(f.value);
   }
@@ -276,7 +367,7 @@
   /* ----- resultado ----- */
   function renderResults(g, d) {
     const st = S.settle(g);
-    const ranked = d.players.slice().sort((a, b) => b.net - a.net);
+    const ranked = d.players.slice().sort((a, b) => (a.place && b.place) ? a.place - b.place : b.net - a.net);
     const delayOf = (rank) => Math.min(rank * 220, 1100);
     root.innerHTML = `
     <section class="panel game-head">
@@ -292,7 +383,11 @@
       </div>
       ${d.difference !== 0 ? `<p class="msg warn">${esc(T('res.diff', { what: T(d.difference > 0 ? 'sum.over' : 'sum.under'), v: fmt(g, Math.abs(d.difference)) }))}</p>` : `<p class="msg ok">${esc(T('res.match'))}</p>`}
       <div class="actions">
-        <button class="primary" data-act="copy">${esc(T('res.copy'))}</button>
+        <a class="primary wa-btn" href="https://wa.me/?text=${encodeURIComponent(S.summaryText(g))}" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.9 11.9 0 0 0 4.6 4c1.7.7 2.3.8 3.2.7.5-.1 1.5-.6 1.7-1.2s.2-1.1.1-1.2-.2-.2-.5-.3z"/></svg>
+          ${esc(T('res.whatsapp'))}
+        </a>
+        <button class="ghost" data-act="copy">${esc(T('res.copy'))}</button>
         <button class="ghost" data-act="export-one">${esc(T('res.export'))}</button>
         <button class="ghost" data-act="reopen">${esc(T('res.reopen'))}</button>
         <button class="ghost" data-act="goto-calc">${esc(T('res.new'))}</button>
@@ -306,7 +401,7 @@
         const chips = lc && lc.chips;
         return `
         <article class="player result-card" style="--delay:${delayOf(rank)}ms">
-          <div class="p-top">${avatar(i, p.name)}<b class="p-title">${esc(p.name)}</b>
+          <div class="p-top">${avatar(i, p.name)}<b class="p-title">${p.place ? `<span class="place place-${p.place}">${esc(T('tour.place', { n: p.place }))}</span> ` : ''}${esc(p.name)}</b>
             <span class="net ${p.net > 0 ? 'pos' : p.net < 0 ? 'neg' : ''}">${p.net > 0 ? '+' : p.net < 0 ? '−' : ''}${fmt(g, Math.abs(p.net))}</span></div>
           <div class="felt"><div class="stacks">${chips ? stacksHTML(g, chips, true, delayOf(rank)) : `<div class="value-only">${fmt(g, p.cashedOut)}<small>${lc ? esc(T('res.by_value')) : ''}</small></div>`}</div></div>
           <div class="p-stats">
@@ -425,7 +520,7 @@
     const d = S.derive(g);
     const p = d.players.find((x) => x.id === pid);
     buy = { mode, pid, counts: {} };
-    $('dlgBuyTitle').textContent = mode === 'join' ? T('buy.join_title') : T(p.active ? 'buy.rebuy_title' : 'buy.back_title', { name: p.name });
+    $('dlgBuyTitle').textContent = mode === 'join' ? T('buy.join_title') : mode === 'addon' ? T('buy.addon_title', { name: p.name }) : T(p.active ? 'buy.rebuy_title' : 'buy.back_title', { name: p.name });
     $('buyNameField').hidden = mode !== 'join';
     $('buyName').value = mode === 'join' ? T('player.default', { n: d.players.length + 1 }) : '';
     $('buyAmount').value = centsToInput(g, g.config.buyIn);
@@ -464,12 +559,12 @@
     if (total !== amount && !(await ask(T('buy.mismatch_ask', { total: fmt(g, total), amount: fmt(g, amount) }), T('buy.record')))) return;
     let pid = buy.pid;
     if (buy.mode === 'join') pid = S.join(g, $('buyName').value.trim() || undefined, amount, buy.counts);
-    else S.rebuy(g, buy.pid, amount, buy.counts);
+    else S.rebuy(g, buy.pid, amount, buy.counts, undefined, buy.mode === 'addon' ? 'addon' : undefined);
     save();
     dlgBuy.close();
     renderLive();
     flashCard(pid, true);
-    toast(T(buy.mode === 'join' ? 'buy.joined_toast' : 'buy.rebuy_toast'));
+    toast(T(buy.mode === 'join' ? 'buy.joined_toast' : buy.mode === 'addon' ? 'buy.addon_toast' : 'buy.rebuy_toast'));
   });
 
   /* ---------------- diálogo: saque ---------------- */
@@ -531,12 +626,43 @@
     if (act === 'rename') commitRename(b.dataset.pid);
     if (act === 'join') openBuy('join');
     if (act === 'rebuy') openBuy('rebuy', b.dataset.pid);
+    if (act === 'addon') openBuy('addon', b.dataset.pid);
+    if (act === 'bust') {
+      const p = S.derive(g).players.find((x) => x.id === b.dataset.pid);
+      if (!(await ask(T('live.bust_ask', { name: p.name }), T('live.bust'), true))) return;
+      S.eliminate(g, p.id);
+      save(); renderLive(); flashCard(p.id);
+    }
+    if (act === 'tmove') {
+      const i = ui.order.indexOf(b.dataset.pid), j = i + Number(b.dataset.d);
+      if (j >= 0 && j < ui.order.length) { ui.order.splice(j, 0, ui.order.splice(i, 1)[0]); renderLive(); }
+    }
+    if (act === 'tplace') {
+      if (b.dataset.d === '1') ui.payouts.push(0); else if (ui.payouts.length > 1) ui.payouts.pop();
+      renderLive();
+    }
+    if (act === 'tfinish') {
+      S.finishTournament(g, ui.order, ui.payouts.slice());
+      document.dispatchEvent(new CustomEvent('chipsplit:game-finished', { detail: { type: 'tournament' } }));
+      ui.counting = false;
+      save();
+      renderLive();
+      window.scrollTo(0, 0);
+      setTimeout(ads, 1600);
+    }
     if (act === 'cash') openCash(b.dataset.pid);
     if (act === 'undo') {
       const last = g.events[g.events.length - 1];
       if (await ask(T('undo.ask', { what: S.describe(g, last) }), T('undo.btn'))) { S.undo(g); save(); renderLive(); if (last.playerId) flashCard(last.playerId); }
     }
-    if (act === 'count') { ui.counting = true; ui.finals = {}; renderLive(); window.scrollTo(0, 0); }
+    if (act === 'count') {
+      ui.counting = true; ui.finals = {};
+      if (isTour(g)) {
+        ui.order = S.derive(g).players.filter((p) => p.active).map((p) => p.id);
+        ui.payouts = (g.config.payouts || S.defaultPayouts(S.derive(g).players.length)).slice();
+      }
+      renderLive(); window.scrollTo(0, 0);
+    }
     if (act === 'count-cancel') { ui.counting = false; renderLive(); }
     if (act === 'fmode') {
       const f = ui.finals[b.dataset.pid];
@@ -558,6 +684,7 @@
       });
       if (sum !== d.onTable && !(await ask(T('count.mismatch_ask', { sum: fmt(g, sum), table: fmt(g, d.onTable) }), T('count.end')))) return;
       S.finish(g, finals);
+      document.dispatchEvent(new CustomEvent('chipsplit:game-finished', { detail: { type: 'cash' } }));
       ui.counting = false;
       save();
       renderLive();
@@ -616,6 +743,7 @@
     const t = e.target;
     if (t.dataset.rename) syncRenameBtn(t);
     if (t.dataset.fval && g) { ui.finals[t.dataset.fval].value = t.value; updateCounting(g, S.derive(g)); }
+    if (t.dataset.pay !== undefined && g) { ui.payouts[Number(t.dataset.pay)] = Math.max(0, Number(t.value) || 0); updatePrizes(g); }
   });
   root.addEventListener('change', (e) => {
     const g = activeGame();
@@ -748,6 +876,8 @@
   window.ChipUI = {
     ask, toast, download, showView, isDefaultName,
     games: () => store.games,
+    running: () => runningGame(),
+    resume: () => { const r = runningGame(); if (!r) return; store.activeId = r.id; ui.counting = false; showView('live'); },
     /** Junta jogos vindos da nuvem com os do aparelho (o mais recente vence). */
     mergeGames: (remote) => {
       let changed = false;
