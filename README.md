@@ -16,10 +16,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/01-inicio.jpg" width="200" alt="Tela inicial com o botão Novo jogo">
-  <img src="docs/02-novo-jogo.jpg" width="200" alt="Novo jogo guiado: escolha do kit de fichas">
-  <img src="docs/03-mesa-ao-vivo.jpg" width="200" alt="Mesa ao vivo com rebuy, add-on e encerrar jogo">
-  <img src="docs/04-acerto.jpg" width="200" alt="Acerto final com compartilhamento pelo WhatsApp">
+  <img src="docs/01-inicio.png" width="200" alt="Tela inicial com o botão Novo jogo">
+  <img src="docs/02-novo-jogo.png" width="200" alt="Novo jogo guiado: escolha do kit de fichas">
+  <img src="docs/03-mesa-ao-vivo.png" width="200" alt="Mesa ao vivo com rebuy, add-on e encerrar jogo">
+  <img src="docs/04-acerto.png" width="200" alt="Acerto final com compartilhamento pelo WhatsApp">
 </p>
 
 ## O problema

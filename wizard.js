@@ -29,12 +29,19 @@
     var s = Math.round(n * 100) % 100 === 0 ? String(Math.round(n)) : n.toFixed(2);
     return I18N.usesComma() ? s.replace('.', ',') : s;
   }
+  /** Big blind ≈ 1% do buy-in, sempre par (o small = metade fecha em ficha inteira). */
+  var EVEN_BB = [2, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000];
+  function bigBlindFor(buyInCents) {
+    var bb = 2;
+    EVEN_BB.forEach(function (v) { if (v <= buyInCents / 100) bb = v; });
+    return bb;
+  }
   function parseBuyIn(v) { return CS.toCents(String(v || '').trim()) / 100; }
 
   /** Aplica o que foi escolhido até agora e devolve o cálculo. */
   function compute() {
     var buyIn = parseBuyIn(w.buyIn);
-    var bb = buyIn > 0 ? CS.niceAtLeast(Math.round(buyIn * 100) / 100) / 100 : 0; // big blind ≈ 1% do buy-in
+    var bb = buyIn > 0 ? bigBlindFor(Math.round(buyIn * 100)) / 100 : 0;
     return window.ChipSplitApp.apply({
       players: w.players, type: w.type, buyIn: toInputStr(buyIn), bigBlind: bb > 0 ? toInputStr(bb) : '',
       useSmall: true, rebuys: 0, chips: kitChips(w.kit)
