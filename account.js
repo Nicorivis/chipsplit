@@ -2,11 +2,9 @@
  * ChipSplit — conta, anúncios e "reabrir onde parou".
  *
  * Modos:
- *  - convidado: sem login, tudo salvo neste aparelho, COM anúncios.
- *  - pro (simulado): sem anúncios. No app real vira assinatura mensal.
- *  - google: botão aparece como "em breve" (precisa de servidor/Firebase).
- *
- * Anúncios aqui são só espaços reservados (banner 320×50 e intersticial de 3 s).
+ *  - convidado: sem login, tudo salvo neste aparelho.
+ *  - google: login com Google + nuvem (auth.js), quando config.firebase existir.
+ *  - anúncios e Pro: só aparecem quando ligados em config.js (ou simulados com ?dev=1).
  */
 (function () {
   'use strict';
@@ -15,6 +13,7 @@
   const SKIP_AFTER_S = 3;
 
   const $ = (id) => document.getElementById(id);
+  const CFG = window.CHIPSPLIT_CONFIG || { showAds: false, showPro: false };
 
   function load() {
     try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; }
@@ -58,11 +57,14 @@
   });
 
   function refresh() {
-    const showAds = !!account && !account.pro;
+    const showAds = CFG.showAds && !!account && !account.pro;
     $('adBanner').hidden = !showAds;
     document.body.classList.toggle('has-banner', showAds);
     const prof = window.ChipProfile && window.ChipProfile.get();
-    $('accountLabel').textContent = !account ? I18N.t('acc.enter') : (prof && prof.name) ? prof.name : I18N.t(account.pro ? 'acc.pro' : 'acc.guest');
+    const user = window.ChipAuth && window.ChipAuth.user();
+    $('accountLabel').textContent = !account ? I18N.t('acc.enter') : (prof && prof.name) ? prof.name : user ? (user.displayName || user.email) : I18N.t(account.pro ? 'acc.pro' : 'acc.guest');
+    const note = $('welcomeNote');
+    if (note) note.textContent = I18N.t(CFG.showAds ? 'welcome.note' : 'welcome.note_free');
     const av = $('accountAvatar');
     if (av) {
       av.hidden = !(prof && prof.photo);
@@ -75,7 +77,7 @@
   /** Mostra o anúncio grande (se for o caso) e resolve quando a pessoa fecha. */
   function maybeInterstitial() {
     return new Promise((resolve) => {
-      if (!account || account.pro) return resolve(false);
+      if (!CFG.showAds || !account || account.pro) return resolve(false);
       const now = Date.now();
       if (now - (account.lastInterstitial || 0) < INTERSTITIAL_EVERY_MS) return resolve(false);
       account.lastInterstitial = now;
@@ -106,6 +108,7 @@
   }
 
   function togglePro() {
+    if (!CFG.showPro) return;
     account.pro = !account.pro;
     save();
     refresh();
@@ -123,6 +126,12 @@
 
   document.addEventListener('chipsplit:lang', refresh);
   document.addEventListener('chipsplit:profile', refresh);
+  document.addEventListener('chipsplit:auth', refresh);
+  window.ChipAccount.ensureGuest = () => {
+    if (!account) { account = { mode: 'guest', pro: false, since: Date.now(), lastInterstitial: 0 }; save(); }
+    if ($('dlgWelcome').open) $('dlgWelcome').close();
+    refresh();
+  };
   refresh();
   if (!account) showWelcome();
 })();

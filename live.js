@@ -24,6 +24,7 @@
     return { games: [], activeId: null };
   }
   function save() {
+    document.dispatchEvent(new CustomEvent('chipsplit:games-saved'));
     try { localStorage.setItem(KEY, JSON.stringify(store)); }
     catch (e) { toast(T('live.save_fail')); }
     $('liveDot').hidden = !runningGame();
@@ -32,18 +33,25 @@
   const runningGame = () => store.games.find((g) => !S.isEnded(g)) || null;
 
   /* ---------------- abas ---------------- */
+  const VIEW_ORDER = ['calc', 'live', 'history', 'profile'];
   function showView(name) {
-    ui.view = name;
-    try { localStorage.setItem('chipsplit-ui-view', name); } catch (e) { /* ignora */ }
-    ['calc', 'live', 'history', 'profile'].forEach((v) => { $('view-' + v).hidden = v !== name; });
-    document.dispatchEvent(new CustomEvent('chipsplit:view', { detail: { view: name } }));
-    document.querySelectorAll('.tab').forEach((t) => {
-      if (t.dataset.view === name) t.setAttribute('aria-current', 'page');
-      else t.removeAttribute('aria-current');
-    });
-    if (name === 'live') renderLive();
-    if (name === 'history') renderHistory();
-    window.scrollTo(0, 0);
+    const from = ui.view;
+    const swap = () => {
+      ui.view = name;
+      try { localStorage.setItem('chipsplit-ui-view', name); } catch (e) { /* ignora */ }
+      VIEW_ORDER.forEach((v) => { $('view-' + v).hidden = v !== name; });
+      document.querySelectorAll('.tab').forEach((t) => {
+        if (t.dataset.view === name) t.setAttribute('aria-current', 'page');
+        else t.removeAttribute('aria-current');
+      });
+      if (name === 'live') renderLive();
+      if (name === 'history') renderHistory();
+      document.dispatchEvent(new CustomEvent('chipsplit:view', { detail: { view: name } }));
+      window.scrollTo(0, 0);
+    };
+    const fx = window.ChipFX && window.ChipFX.transition;
+    if (fx && from !== name) fx(swap, VIEW_ORDER.indexOf(name) >= VIEW_ORDER.indexOf(from) ? 'fwd' : 'back');
+    else swap();
   }
   document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
     if (t.dataset.view === 'live' && !activeGame() && runningGame()) store.activeId = runningGame().id;
@@ -71,11 +79,10 @@
     store.activeId = g.id;
     ui.counting = false;
     save();
-    const fx = window.ChipFX ? window.ChipFX.deal(r.players, T('fx.dealing')) : Promise.resolve();
-    fx.then(ads).then(() => {
-      showView('live');
-      toast(T('live.started_toast', { name: T('player.default', { n: 1 }) }));
-    });
+    // Animação das fichas e depois DIRETO para o jogo (sem anúncio no meio).
+    try { if (window.ChipFX) await window.ChipFX.deal(r.players, T('fx.dealing')); } catch (err) { /* segue */ }
+    showView('live');
+    toast(T('live.started_toast', { name: T('player.default', { n: 1 }) }));
   });
 
   /* ---------------- render principal ---------------- */
@@ -553,7 +560,9 @@
       S.finish(g, finals);
       ui.counting = false;
       save();
-      ads().then(() => { renderLive(); window.scrollTo(0, 0); });
+      renderLive();
+      window.scrollTo(0, 0);
+      setTimeout(ads, 1600); // anúncio (se ligado) só depois do resultado aparecer
     }
     if (act === 'reopen') {
       if (!(await ask(T('res.reopen_ask'), T('res.reopen_btn')))) return;
@@ -650,6 +659,7 @@
     if (b.dataset.h === 'open') { store.activeId = g.id; ui.counting = false; save(); showView('live'); }
     if (b.dataset.h === 'del' && (await ask(T('hist.delete_ask', { title: g.title }), T('hist.delete'), true))) {
       store.games = store.games.filter((x) => x.id !== g.id);
+      document.dispatchEvent(new CustomEvent('chipsplit:game-deleted', { detail: { id: g.id } }));
       if (store.activeId === g.id) store.activeId = null;
       save(); renderHistory();
     }
@@ -738,6 +748,24 @@
   window.ChipUI = {
     ask, toast, download, showView, isDefaultName,
     games: () => store.games,
+    /** Junta jogos vindos da nuvem com os do aparelho (o mais recente vence). */
+    mergeGames: (remote) => {
+      let changed = false;
+      (remote || []).forEach((g) => {
+        if (!g || !g.id || !Array.isArray(g.events)) return;
+        const i = store.games.findIndex((x) => x.id === g.id);
+        if (i < 0) { store.games.push(g); changed = true; }
+        else if ((g.events.length > store.games[i].events.length) || (g.title !== store.games[i].title && (g.updatedAt || 0) > (store.games[i].updatedAt || 0))) { store.games[i] = g; changed = true; }
+      });
+      if (changed) {
+        store.games.sort((a, b) => b.createdAt - a.createdAt);
+        try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* ignora */ }
+        if (ui.view === 'live') renderLive();
+        if (ui.view === 'history') renderHistory();
+      }
+      return changed;
+    },
+    deleteAllLocal: () => { store = { games: [], activeId: null }; },
     exportAll: () => download('chipsplit-backup-' + new Date().toISOString().slice(0, 10) + '.json', { app: 'chipsplit', v: 1, exportedAt: new Date().toISOString(), games: store.games })
   };
 

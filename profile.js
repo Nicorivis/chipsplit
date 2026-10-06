@@ -26,7 +26,10 @@
     document.dispatchEvent(new CustomEvent('chipsplit:profile'));
   }
 
-  window.ChipProfile = { get: () => profile };
+  window.ChipProfile = {
+    get: () => profile,
+    set: (patch) => { Object.assign(profile, patch || {}); save(); if (!$('view-profile').hidden) render(); }
+  };
 
   /* ---------- tela ---------- */
   const root = $('profileRoot');
@@ -89,12 +92,7 @@
 
       <div class="panel">
         <h2>${esc(T('prof.account'))}</h2>
-        <div class="acc-card">
-          <b>${esc(T(acc.pro ? 'acc.mode_pro' : 'acc.mode_free'))}</b>
-          <small>${esc(T('acc.since', { date: new Date(acc.since || Date.now()).toLocaleDateString(I18N.locale()) }))}</small>
-        </div>
-        <button type="button" class="gold-btn" data-p="pro">${esc(T(acc.pro ? 'acc.go_free' : 'acc.go_pro'))}</button>
-        <button type="button" class="google-btn" disabled><span>${esc(T('welcome.google'))}</span> <span class="soon">${esc(T('welcome.soon'))}</span></button>
+        ${accountPanel(acc)}
       </div>
 
       <div class="panel">
@@ -140,6 +138,27 @@
       </div>
     </section>`;
   }
+
+  function accountPanel(acc) {
+    const CFG = window.CHIPSPLIT_CONFIG || {};
+    const auth = window.ChipAuth;
+    const user = auth && auth.user();
+    const since = esc(T('acc.since', { date: new Date(acc.since || Date.now()).toLocaleDateString(I18N.locale()) }));
+    const mode = user ? T('acc.mode_google') : CFG.showPro ? T(acc.pro ? 'acc.mode_pro' : 'acc.mode_free') : T('acc.mode_guest');
+    let html = `<div class="acc-card"><b>${esc(mode)}</b><small>${user ? esc(T('auth.signed_as', { email: user.email || '' })) : since}</small></div>`;
+    if (CFG.showPro) html += `<button type="button" class="gold-btn" data-p="pro">${esc(T(acc.pro ? 'acc.go_free' : 'acc.go_pro'))}</button>`;
+    else html += `<button type="button" class="ghost" disabled>${esc(T('pro.soon'))}</button>`;
+    if (user) {
+      html += `<button type="button" class="ghost" data-p="signout">${esc(T('auth.signout'))}</button>
+               <button type="button" class="danger-outline" data-p="delete-account">${esc(T('auth.delete'))}</button>`;
+    } else if (auth && auth.enabled()) {
+      html += `<button type="button" class="google-btn" data-p="signin">${GOOGLE_SVG}<span>${esc(T('welcome.google'))}</span></button>`;
+    } else {
+      html += `<button type="button" class="google-btn" disabled>${GOOGLE_SVG}<span>${esc(T('welcome.google'))}</span> <span class="soon">${esc(T('welcome.soon'))}</span></button>`;
+    }
+    return html;
+  }
+  const GOOGLE_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3zM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22zM6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9zM12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.8 9.4 6 12 6z"/></svg>';
 
   function currencyLabel(code) {
     try {
@@ -224,6 +243,13 @@
     const act = b.dataset.p;
     if (act === 'photo-remove') { profile.photo = ''; save(); render(); }
     if (act === 'pro') { window.ChipAccount.togglePro(); render(); }
+    if (act === 'signin' && window.ChipAuth) { await window.ChipAuth.signIn(); render(); }
+    if (act === 'signout' && window.ChipAuth) { await window.ChipAuth.signOut(); render(); }
+    if (act === 'delete-account' && window.ChipAuth) {
+      if (!(await window.ChipUI.ask(T('auth.delete_ask'), T('prof.delete_btn'), true))) return;
+      await window.ChipAuth.deleteAccount();
+      render();
+    }
     if (act === 'export') window.ChipUI.exportAll();
     if (act === 'delete') {
       if (!(await window.ChipUI.ask(T('prof.delete_ask'), T('prof.delete_btn'), true))) return;
@@ -236,6 +262,7 @@
 
   document.addEventListener('chipsplit:view', (e) => { if (e.detail.view === 'profile') render(); });
   document.addEventListener('chipsplit:lang', () => { if (!$('view-profile').hidden) render(); });
+  document.addEventListener('chipsplit:auth', () => { if (!$('view-profile').hidden) render(); });
 
   document.dispatchEvent(new CustomEvent('chipsplit:profile'));
   if (!$('view-profile').hidden) render();

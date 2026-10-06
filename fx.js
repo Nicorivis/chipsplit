@@ -66,21 +66,50 @@
       document.body.appendChild(ov);
       requestAnimationFrame(() => ov.classList.add('show'));
       const total = n * 70 + 240 + 650;
+      const safety = setTimeout(() => { ov.remove(); resolve(); }, total + 1500); // nunca prende a tela
       setTimeout(() => {
         ov.classList.remove('show');
-        setTimeout(() => { ov.remove(); resolve(); }, 220);
+        setTimeout(() => { clearTimeout(safety); ov.remove(); resolve(); }, 220);
       }, total);
     });
   }
 
-  /* ---------- telas e janelas entram suaves ---------- */
+  /* ---------- troca de tela fluida ---------- */
+  const hasVT = typeof document.startViewTransition === 'function';
+  function transition(swap, dir) {
+    if (reduce()) { swap(); return; }
+    if (hasVT) {
+      document.documentElement.dataset.dir = dir || 'fwd';
+      try { document.startViewTransition(swap); return; } catch (e) { /* cai no modo simples */ }
+    }
+    swap();
+  }
   document.addEventListener('chipsplit:view', (e) => {
+    moveInk();
+    if (hasVT || reduce()) return;
     const el = document.getElementById('view-' + e.detail.view);
-    if (!el || reduce()) return;
+    if (!el) return;
     el.classList.remove('fx-view');
     void el.offsetWidth;
     el.classList.add('fx-view');
   });
 
-  window.ChipFX = { flash, success, deal };
+  /* ---------- marcador da aba que desliza ---------- */
+  function moveInk() {
+    const tabs = document.querySelector('.tabs');
+    const cur = tabs && tabs.querySelector('.tab[aria-current="page"]');
+    let ink = tabs && tabs.querySelector('.tab-ink');
+    if (!tabs) return;
+    if (!ink) { ink = document.createElement('span'); ink.className = 'tab-ink'; ink.setAttribute('aria-hidden', 'true'); tabs.prepend(ink); }
+    if (!cur) { ink.style.opacity = '0'; return; }
+    ink.style.opacity = '1';
+    ink.style.width = cur.offsetWidth + 'px';
+    ink.style.transform = 'translateX(' + cur.offsetLeft + 'px)';
+  }
+  window.addEventListener('resize', moveInk);
+  document.addEventListener('chipsplit:lang', () => setTimeout(moveInk, 30));
+  window.addEventListener('load', moveInk);
+  setTimeout(moveInk, 60);
+
+  window.ChipFX = { flash, success, deal, transition, moveInk };
 })();
