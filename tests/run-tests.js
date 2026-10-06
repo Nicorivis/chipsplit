@@ -445,6 +445,54 @@
     eq(f.map(function (x) { return x.name + ' ' + x.games; }), ['Beto 2', 'Caio 2', 'Duda 2', 'Edu 1']);
   });
 
+  /* ---------- v1.0: torneio, add-on, eliminação ---------- */
+  function newTour() {
+    var g = newGame();
+    g.config.type = 'tournament';
+    return g;
+  }
+  test('Torneio: prêmios padrão por número de jogadores', function () {
+    eq(SS.defaultPayouts(3), [100]);
+    eq(SS.defaultPayouts(6), [65, 35]);
+    eq(SS.defaultPayouts(8), [50, 30, 20]);
+    eq(SS.defaultPayouts(14), [45, 27, 18, 10]);
+  });
+  test('Torneio: prêmios somam o pote (sobra de centavos vai pro 1º)', function () {
+    var p = SS.prizeAmounts(10001, [50, 30, 20]);
+    eq(p, [5001, 3000, 2000]);
+    eq(p.reduce(function (a, b) { return a + b; }, 0), 10001);
+  });
+  test('Add-on fica marcado e conta no pote', function () {
+    var g = newGame();
+    SS.rebuy(g, 'p1', 5000, SS.suggest(g, 5000).counts, T0 + MIN, 'addon');
+    var d = SS.derive(g);
+    var p1 = d.players.filter(function (p) { return p.id === 'p1'; })[0];
+    eq(p1.addons, 1);
+    eq(d.totalIn, 25000);
+  });
+  test('Torneio: eliminação, ordem final e acerto fecham em zero', function () {
+    var g = newTour();
+    SS.eliminate(g, 'p4', T0 + 10 * MIN);
+    SS.eliminate(g, 'p3', T0 + 20 * MIN);
+    var d0 = SS.derive(g);
+    eq(d0.players.filter(function (p) { return p.busted; }).map(function (p) { return p.id; }), ['p3', 'p4']);
+    SS.finishTournament(g, ['p2', 'p1'], [50, 30, 20], T0 + 60 * MIN);
+    var d = SS.derive(g);
+    var place = {};
+    d.players.forEach(function (p) { place[p.id] = p.place; });
+    eq(place, { p1: 2, p2: 1, p3: 3, p4: 4 });
+    eq(d.difference, 0);
+    eq(SS.isEnded(g), true);
+  });
+  test('Torneio: rebuy depois de eliminado volta o jogador', function () {
+    var g = newTour();
+    SS.eliminate(g, 'p4', T0 + 10 * MIN);
+    SS.rebuy(g, 'p4', 5000, SS.suggest(g, 5000).counts, T0 + 12 * MIN);
+    var p4 = SS.derive(g).players.filter(function (p) { return p.id === 'p4'; })[0];
+    eq(p4.busted, false);
+    eq(p4.active, true);
+  });
+
   /* ---------- runner ---------- */
   var results = tests.map(function (t) {
     try { t.fn(); return { name: t.name, pass: true }; }
